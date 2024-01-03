@@ -22,66 +22,57 @@ class IFTTTGraphDataset(DGLDataset):
 
         self.graphs = []
         self.labels = []
-
-        # Create a graph for each graph ID from the edges table.
-        # First process the properties table into two dictionaries with graph IDs as keys.
-        # The label and number of nodes are values.
         label_dict = {}
         num_nodes_dict = {}
+        
         for _, row in properties.iterrows():
             label_dict[row['graph_id']] = row['label']
             num_nodes_dict[row['graph_id']] = row['num_nodes']
-
-        # For the edges, first group the table by graph IDs.
+        # 把每个graph id下的边集合整理出来
         edges_group = edges.groupby('graph_id')
 
-        # For each graph ID...
         for graph_id in edges_group.groups:
-            # Find the edges as well as the number of nodes and its label.
+            # 遍历对应ID下边集合,得到邻接节点对(src,dst)
             edges_of_id = edges_group.get_group(graph_id)
             src = edges_of_id['src'].to_numpy()
             dst = edges_of_id['dst'].to_numpy()
             num_nodes = num_nodes_dict[graph_id]
             label = label_dict[graph_id]
 
-            # Create a graph and add it to the list of graphs and labels.
+            # 按(src,dst节点对)建图
             g = dgl.graph((src, dst), num_nodes=num_nodes)
-
-            f1 = torch.Tensor([embedding_dict[str(i)] for i in src])
-            # f2 = np.array([embedding_dict[str(i)]] for i in dst)
 
             g.ndata['embedding'] = torch.zeros(g.num_nodes(), embedding_size)
             g.ndata['embedding'][src] = torch.Tensor([embedding_dict[str(i)] for i in src])
             g.ndata['embedding'][dst] = torch.Tensor([embedding_dict[str(i)] for i in dst])
-            # g = dgl.add_self_loop(g)
+            
             self.graphs.append(g)
             self.labels.append(label)
 
-        # Convert the label list to tensor for saving.
-        self.labels = torch.LongTensor(self.labels)
-        graph_labels = {"glabel": self.labels}
-        # save_graphs("./ifttt_homo_graph_dataset.bin", self.graphs, graph_labels)
-        # print("save to ifttt_dataset.bin")
+        # 图标签，但是我们好像没有
+        self.labels = torch.LongTensor(self.labels)  
+
 
     def __getitem__(self, i):
+        # 取ID为i的图和标签
         return self.graphs[i], self.labels[i]
 
     def __len__(self):
         return len(self.graphs)
 
     def save(self):
-        # save graphs and labels
+        # 保存图和标签
         graph_path = os.path.join(data_source, dataset_name)
         save_graphs(graph_path, self.graphs, {'labels': self.labels})
 
     def load(self):
-        # load processed data from directory `self.save_path`
+        # 加载图和标签
         graph_path = os.path.join(data_source, dataset_name)
         self.graphs, label_dict = load_graphs(graph_path)
         self.labels = label_dict['labels']
 
     def has_cache(self):
-        # check whether there are processed data in `self.save_path`
+        # 检查图数据是否已缓存
         graph_path = os.path.join(data_source, dataset_name)
         return os.path.exists(graph_path)
 
