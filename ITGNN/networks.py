@@ -19,7 +19,7 @@ class GraphCrossModule(torch.nn.Module):
 
     Parameters
     ----------
-    pool_ratios : Union[float, List[float]]
+    pool_ratios : Union[float, List[float]] 池化比例
         The pooling ratios (for keeping nodes) for each layer.
         For example, if `pool_ratio=0.8`, 80\% nodes will be preserved.
         If a single float number is given, all pooling layers will have the

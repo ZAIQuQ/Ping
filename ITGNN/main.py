@@ -48,10 +48,10 @@ def contrastive_loss(logits_embedding: Tensor, labels: Tensor):
 def compute_loss(cls_logits:Tensor, labels:Tensor,
                  logits_s1:Tensor, logits_s2:Tensor,
                  epoch:int, total_epochs:int, device:torch.device):
-    # classification loss
+    # 分类损失
     classify_loss = F.nll_loss(cls_logits, labels.to(device))
 
-    # loss for vertex infomax pooling
+    # 顶点信息最大池化损失
     scale1, scale2 = logits_s1.size(0) // 2, logits_s2.size(0) // 2
     s1_label_t, s1_label_f = torch.ones(scale1), torch.zeros(scale1)
     s2_label_t, s2_label_f = torch.ones(scale2), torch.zeros(scale2)
@@ -62,7 +62,8 @@ def compute_loss(cls_logits:Tensor, labels:Tensor,
     pool_loss_s2 = F.binary_cross_entropy_with_logits(logits_s2, s2_label)
     pool_loss = (pool_loss_s1 + pool_loss_s2) / 2
     
-    loss = classify_loss + (2 - epoch / total_epochs) * pool_loss
+    # 池化损失权重越来越小，后期更加重视分类损失
+    loss = classify_loss + (2 - epoch / total_epochs) * pool_loss 
 
     return loss
 
@@ -81,17 +82,16 @@ def train(model:torch.nn.Module, optimizer, trainloader,
         batch_graphs, batch_labels = batch
         batch_graphs = batch_graphs.to(device)
         batch_labels = batch_labels.long().to(device)
+        
         out, logits_embedding, l1, l2 = model(batch_graphs, 
                             batch_graphs.ndata["embedding"])
-        # loss = compute_loss(out, batch_labels, l1, l2,
-        #                     curr_epoch, total_epochs, device)
-        loss = contrastive_loss(logits_embedding, batch_labels)
+        
+        loss = compute_loss(out, batch_labels, l1, l2, curr_epoch, total_epochs, device) # 普通损失
+        # loss = contrastive_loss(logits_embedding, batch_labels) # 对比损失
         loss.backward()
         optimizer.step()
 
         total_loss += loss.item()
-
-        # print("loss: ", loss.item())
 
         train_saved_embed_label.append((logits_embedding, batch_labels))
 
@@ -169,7 +169,7 @@ def main(args):
     num_feature, num_classes = 300, 2
     args.in_dim = int(num_feature)
     args.out_dim = int(num_classes)
-    args.edge_feat_dim = 0 # No edge feature in datasets that we use.
+    args.edge_feat_dim = 0 # 没有边特征
     
     model = GraphClassifier(args).to(device)
 
@@ -193,8 +193,9 @@ def main(args):
     train_times = []
     for e in range(args.epochs):
         s_time = time()
-        train_loss = train(model, optimizer, train_loader, device,
-                           e, args.epochs)
+        
+        train_loss = train(model, optimizer, train_loader, device, e, args.epochs)
+        
         train_times.append(time() - s_time)
         test_acc, prfs, auc = test(model, test_loader, device)
         if test_acc > best_test_acc:

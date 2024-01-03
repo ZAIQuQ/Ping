@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # input arguments
-DATA="${1-SMT}"
+DATA="${1-IFTTT}"
 device=${2-1}
 num_trials=${1-1}
 print_every=${1-1}
