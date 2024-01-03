@@ -49,7 +49,7 @@ class IFTTTGraphDataset(DGLDataset):
             self.graphs.append(g)
             self.labels.append(label)
 
-        # 图标签，但是我们好像没有
+        # 图标签，但是我们没有
         self.labels = torch.LongTensor(self.labels)  
 
 
